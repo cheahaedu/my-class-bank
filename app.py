@@ -7,8 +7,8 @@ from datetime import datetime
 # ---------------------------------------------------------
 # 0. 관리자 및 시트 설정
 # ---------------------------------------------------------
-ADMIN_PASSWORD = "teacher1234"  # 선생님 비밀번호
-SHEET_ID = "여기에_선생님_시트_ID를_입력하세요" # 주소창 d/ 와 /edit 사이 문자열
+ADMIN_PASSWORD = "3309"  # 선생님 비밀번호
+SHEET_ID = "1a29VKE2DPG2u9-dhuZ5fCJXeO-jAyjObsItQg-eCTic" # 주소창 d/ 와 /edit 사이 문자열
 
 # 1. 구글 시트 연동 (최초 1회 실행)
 @st.cache_resource
