@@ -5,161 +5,133 @@ import pandas as pd
 from datetime import datetime
 
 # ---------------------------------------------------------
-# 0. 관리자 설정
+# 0. 관리자 및 시트 설정
 # ---------------------------------------------------------
-ADMIN_PASSWORD = "3309" # 👈 선생님 비밀번호
+ADMIN_PASSWORD = "3309"  # 선생님 비밀번호
+SHEET_ID = "1a29VKE2DPG2u9-dhuZ5fCJXeO-jAyjObsItQg-eCTic" # 주소창 d/ 와 /edit 사이 문자열
 
-# 1. 구글 시트 연동
-try:
+# 1. 구글 시트 연동 (최초 1회 실행)
+@st.cache_resource
+def get_gspread_client():
     key_dict = json.loads(st.secrets["json_key"])
-    gc = gspread.service_account_from_dict(key_dict)
-    
-    # 방법 A: 이름으로 열기 (이름이 완벽히 일치해야 함)
-    # sh = gc.open("우리 반 경제 앱") 
-    
-    # 방법 B: ID로 열기
-    sh = gc.open_by_key("1a2b3c4d5e6f7g_1a29VKE2DPG2u9-dhuZ5fCJXeO-jAyjObsItQg-eCTic") 
+    return gspread.service_account_from_dict(key_dict)
 
-    ws_student = sh.worksheet("학생 명단")
-    ws_history = sh.worksheet("거래 내역")
-    ws_job = sh.worksheet("직업 관리")
-    
-except gspread.exceptions.SpreadsheetNotFound:
-    st.error("❌ 시트 파일을 찾을 수 없습니다. 이름이나 ID를 확인하세요.")
-    st.stop()
-except gspread.exceptions.APIError as e:
-    st.error("❌ 구글 API 권한 에러! 시트 [공유] 설정에서 서비스 계정 이메일을 추가했는지 확인하세요.")
-    st.stop()
+try:
+    gc = get_gspread_client()
+    sh = gc.open_by_key(SHEET_ID)
 except Exception as e:
-    st.error(f"❌ 기타 에러 발생: {e}")
+    st.error(f"시트 연결 실패: {e}")
     st.stop()
 
-# 2. 화면 설정
-st.set_page_config(page_title="우리반 은행", page_icon="🏦", layout="wide")
-st.title("🏦 우리반 모바일 뱅킹")
+# ---------------------------------------------------------
+# 2. 데이터 불러오기 함수 (캐싱 적용 ⭐)
+# ---------------------------------------------------------
+# ttl=60은 60초 동안 데이터를 기억한다는 뜻입니다.
+# 25명이 동시에 들어와도 1명만 시트에서 읽어오고 나머지는 기억한 걸 봅니다.
+@st.cache_data(ttl=60)
+def fetch_data(worksheet_name):
+    return sh.worksheet(worksheet_name).get_all_records()
 
-# 3. 데이터 가져오기
-students_data = ws_student.get_all_records()
+# 데이터 갱신이 필요할 때 호출하는 함수 (송금, 주급 등 실행 후)
+def clear_cache():
+    st.cache_data.clear()
+
+# ---------------------------------------------------------
+# 3. 화면 구성
+# ---------------------------------------------------------
+st.set_page_config(page_title="우리반 은행", page_icon="🏦", layout="wide")
+st.title("🏦 우리반 모바일 뱅킹 (최적화 버전)")
+
+# 최신 데이터 불러오기
+students_data = fetch_data("학생 명단")
 student_names = [row['이름'] for row in students_data]
 
 # 사이드바 관리자 로그인
 st.sidebar.title("🔐 관리 센터")
 admin_mode = st.sidebar.checkbox("관리자 모드 활성화")
 
-# ---------------------------------------------------------
-# [관리자 모드]
-# ---------------------------------------------------------
 if admin_mode:
-    admin_pw = st.sidebar.text_input("관리자 암호를 입력하세요", type="password")
-    
+    admin_pw = st.sidebar.text_input("관리자 암호", type="password")
     if admin_pw == ADMIN_PASSWORD:
-        st.sidebar.success("✅ 관리자 인증 성공")
-        st.header("👨‍🏫 학급 화폐 관리자 페이지")
+        st.sidebar.success("✅ 인증 성공")
+        st.header("👨‍🏫 관리자 페이지")
+        at1, at2, at3 = st.tabs(["💰 상금/벌금", "💸 주급 지급", "📊 전체 현황"])
         
-        admin_tab1, admin_tab2, admin_tab3 = st.tabs(["💰 상금/벌금 부과", "💸 주급 일괄 지급", "📊 전체 현황"])
-        
-        with admin_tab1:
-            st.subheader("📢 상금 및 벌금 부과")
-            target_type = st.radio("적용 대상", ["개별 학생", "전체 학생"])
-            selected_students = st.multiselect("학생 선택", student_names) if target_type == "개별 학생" else student_names
-            
-            action_type = st.selectbox("항목 선택", ["상금(입금)", "벌금(출금)", "세금(출금)", "직접 입력"])
-            custom_action = st.text_input("항목 명칭 입력") if action_type == "직접 입력" else ""
-            
-            amount = st.number_input("금액", min_value=0, step=100, key="admin_amount")
-            memo = st.text_input("상세 사유", placeholder="예: 주번 활동 우수")
-            
-            if st.button("💰 일괄 적용하기"):
-                if not selected_students or amount <= 0:
-                    st.warning("대상과 금액을 확인해주세요.")
-                else:
-                    with st.spinner("처리 중..."):
-                        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        category = custom_action if action_type == "직접 입력" else action_type
-                        rows = []
-                        for student in selected_students:
-                            if "입금" in action_type or action_type == "상금(입금)":
-                                rows.append([now, "중앙은행", student, amount, f"[{category}] {memo}"])
-                            else:
-                                rows.append([now, student, "중앙은행", amount, f"[{category}] {memo}"])
-                        ws_history.append_rows(rows)
-                        st.success("처리가 완료되었습니다!")
-                        st.balloons()
+        with at1:
+            target = st.radio("대상", ["개별", "전체"])
+            sel_std = st.multiselect("학생 선택", student_names) if target == "개별" else student_names
+            act = st.selectbox("항목", ["상금(입금)", "벌금(출금)", "세금(출금)", "직접 입력"])
+            amt = st.number_input("금액", min_value=0, step=100)
+            memo = st.text_input("사유")
+            if st.button("💰 일괄 적용"):
+                rows = []
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                for s in sel_std:
+                    if "입금" in act: rows.append([now, "중앙은행", s, amt, memo])
+                    else: rows.append([now, s, "중앙은행", amt, memo])
+                sh.worksheet("거래 내역").append_rows(rows)
+                clear_cache() # 데이터가 바뀌었으므로 캐시 삭제
+                st.success("완료!")
+                st.balloons()
 
-        with admin_tab2:
-            st.subheader("🏢 직업별 주급 일괄 지급")
-            st.info("이 버튼을 누르면 [학생 명단]의 직업을 확인하여 [직업 관리]에 적힌 금액을 모든 학생에게 입금합니다.")
-            
-            if st.button("💸 주급 이체 실행"):
-                with st.spinner("데이터 분석 중..."):
-                    jobs_data = ws_job.get_all_records()
-                    job_pay_dict = {row['직업명']: row['주급'] for row in jobs_data}
-                    
-                    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    rows = []
-                    for student in students_data:
-                        s_name = student['이름']
-                        s_job = student.get('직업', '')
-                        
-                        if s_job in job_pay_dict:
-                            pay = job_pay_dict[s_job]
-                            rows.append([now, "중앙은행", s_name, pay, f"[주급] {s_job} 급여"])
-                    
-                    if rows:
-                        ws_history.append_rows(rows)
-                        st.success(f"총 {len(rows)}명에게 주급 지급 완료!")
-                        st.balloons()
-                    else:
-                        st.error("지급할 대상을 찾지 못했습니다. 시트의 직업명을 확인하세요.")
+        with at2:
+            if st.button("💸 모든 학생 주급 이체"):
+                jobs = fetch_data("직업 관리")
+                job_pay = {r['직업명']: r['주급'] for r in jobs}
+                rows = []
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                for s in students_data:
+                    if s.get('직업') in job_pay:
+                        rows.append([now, "중앙은행", s['이름'], job_pay[s['직업']], f"[주급] {s['직업']}"])
+                sh.worksheet("거래 내역").append_rows(rows)
+                clear_cache()
+                st.success("지급 완료!")
 
-        with admin_tab3:
-            st.subheader("📊 우리반 잔액 현황판")
+        with at3:
             st.dataframe(pd.DataFrame(students_data), use_container_width=True, hide_index=True)
             
-    elif admin_pw != "":
-        st.sidebar.error("❌ 암호가 틀렸습니다.")
+    elif admin_pw != "": st.sidebar.error("❌ 비밀번호 틀림")
 
 # ---------------------------------------------------------
 # [학생용 모드]
 # ---------------------------------------------------------
 if not admin_mode or (admin_mode and admin_pw != ADMIN_PASSWORD):
-    st.subheader("👤 학생 로그인")
     user_name = st.selectbox("이름 선택", ["선택해주세요"] + student_names)
     user_pw_input = st.text_input("비밀번호", type="password")
 
     if user_name != "선택해주세요" and user_pw_input:
-        user_index = next((i for i, item in enumerate(students_data) if item["이름"] == user_name), None)
-        user_info = students_data[user_index]
-        
-        if str(user_info.get('비밀번호')) == user_pw_input:
+        user_info = next((i for i in students_data if i["이름"] == user_name), None)
+        if user_info and str(user_info.get('비밀번호')) == user_pw_input:
             st.success(f"🔓 {user_name}님 환영합니다!")
-            tab1, tab2, tab3 = st.tabs(["💰 잔액 및 송금", "📜 내 거래 내역", "⚙️ 비밀번호 변경"])
+            t1, t2, t3 = st.tabs(["💰 잔액/송금", "📜 내역", "⚙️ 비번변경"])
             
-            with tab1:
-                st.metric(label="내 통장 잔액", value=f"{user_info['현재 잔액']} 원")
+            with t1:
+                st.metric("내 잔액", f"{user_info['현재 잔액']} 원")
                 st.divider()
-                st.subheader("💸 친구에게 송금")
-                receiver = st.selectbox("누구에게?", ["선택해주세요"] + [n for n in student_names if n != user_name])
-                amount = st.number_input("금액", min_value=0, step=100)
-                memo = st.text_input("사유")
-                if st.button("보내기"):
-                    if receiver != "선택해주세요" and 0 < amount <= user_info['현재 잔액']:
-                        ws_history.append_row([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), user_name, receiver, amount, memo])
-                        st.success("송금 완료!")
+                rec = st.selectbox("받는 사람", [n for n in student_names if n != user_name])
+                val = st.number_input("송금액", min_value=0, step=100)
+                msg = st.text_input("메모")
+                if st.button("💸 보내기"):
+                    if 0 < val <= user_info['현재 잔액']:
+                        sh.worksheet("거래 내역").append_row([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), user_name, rec, val, msg])
+                        clear_cache()
+                        st.success("송금 성공!")
                         st.balloons()
-                    else: st.error("잔액이 부족하거나 정보를 확인하세요.")
+                    else: st.error("잔액 부족")
             
-            with tab2:
-                all_h = ws_history.get_all_records()
+            with t2:
+                all_h = fetch_data("거래 내역")
                 if all_h:
                     df = pd.DataFrame(all_h)
                     my_df = df[(df['보낸 사람'] == user_name) | (df['받는 사람'] == user_name)].iloc[::-1]
                     st.dataframe(my_df, use_container_width=True, hide_index=True)
             
-            with tab3:
-                new_pw = st.text_input("새 비밀번호(4자리)", type="password")
-                if st.button("변경 저장"):
-                    if len(new_pw) == 4 and new_pw.isdigit():
-                        ws_student.update_cell(user_index + 2, 3, new_pw)
-                        st.success("비밀번호가 변경되었습니다.")
-        else: st.error("비밀번호가 틀렸습니다.")
+            with t3:
+                new_p = st.text_input("새 비번(4자리)", type="password")
+                if st.button("저장"):
+                    if len(new_p) == 4 and new_p.isdigit():
+                        idx = student_names.index(user_name) + 2
+                        sh.worksheet("학생 명단").update_cell(idx, 3, new_p)
+                        clear_cache()
+                        st.success("변경 완료!")
+        elif user_pw_input: st.error("비밀번호 틀림")
