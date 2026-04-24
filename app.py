@@ -6,7 +6,7 @@ from datetime import datetime
 # 1. 구글 시트 연동
 key_dict = json.loads(st.secrets["json_key"])
 gc = gspread.service_account_from_dict(key_dict)
-sh = gc.open("선생님의_시트_이름") # ⭐️ 실제 시트 이름으로 수정
+sh = gc.open("우리 반 경제 앱") # ⭐️ 실제 시트 이름으로 수정
 
 ws_student = sh.worksheet("학생 명단")
 ws_history = sh.worksheet("거래 내역")
