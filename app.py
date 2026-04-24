@@ -18,7 +18,7 @@ def get_gspread_client():
 
 try:
     gc = get_gspread_client()
-    sh = gc.open_by_key(1a29VKE2DPG2u9-dhuZ5fCJXeO-jAyjObsItQg-eCTic) # ⭐️ 반드시 시트 ID 사용
+    sh = gc.open_by_key("1a29VKE2DPG2u9-dhuZ5fCJXeO-jAyjObsItQg-eCTic") # ⭐️ 반드시 시트 ID 사용
 
 except gspread.exceptions.SpreadsheetNotFound:
     st.error("❌ 시트 파일을 찾을 수 없습니다. 코드의 SHEET_ID를 다시 확인해주세요.")
