@@ -10,16 +10,29 @@ from datetime import datetime
 ADMIN_PASSWORD = "3309" # 👈 선생님 비밀번호
 
 # 1. 구글 시트 연동
-key_dict = json.loads(st.secrets["json_key"])
-gc = gspread.service_account_from_dict(key_dict)
-sh = gc.open("우리 반 경제 앱") #
-
-ws_student = sh.worksheet("학생 명단")
-ws_history = sh.worksheet("거래 내역")
 try:
+    key_dict = json.loads(st.secrets["json_key"])
+    gc = gspread.service_account_from_dict(key_dict)
+    
+    # 방법 A: 이름으로 열기 (이름이 완벽히 일치해야 함)
+    # sh = gc.open("우리 반 경제 앱") 
+    
+    # 방법 B: ID로 열기
+    sh = gc.open_by_key("1a2b3c4d5e6f7g_1a29VKE2DPG2u9-dhuZ5fCJXeO-jAyjObsItQg-eCTic") 
+
+    ws_student = sh.worksheet("학생 명단")
+    ws_history = sh.worksheet("거래 내역")
     ws_job = sh.worksheet("직업 관리")
-except:
-    st.error("'직업 관리' 시트 탭을 찾을 수 없습니다. 구글 시트 이름을 확인해주세요.")
+    
+except gspread.exceptions.SpreadsheetNotFound:
+    st.error("❌ 시트 파일을 찾을 수 없습니다. 이름이나 ID를 확인하세요.")
+    st.stop()
+except gspread.exceptions.APIError as e:
+    st.error("❌ 구글 API 권한 에러! 시트 [공유] 설정에서 서비스 계정 이메일을 추가했는지 확인하세요.")
+    st.stop()
+except Exception as e:
+    st.error(f"❌ 기타 에러 발생: {e}")
+    st.stop()
 
 # 2. 화면 설정
 st.set_page_config(page_title="우리반 은행", page_icon="🏦", layout="wide")
