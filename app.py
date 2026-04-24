@@ -1,9 +1,11 @@
 import streamlit as st
 import gspread
+import json
 from datetime import datetime
 
 # 1. 구글 시트 연동
-gc = gspread.service_account(filename='secrets.json')
+key_dict = json.loads(st.secrets["json_key"])
+gc = gspread.service_account_from_dict(key_dict)
 sh = gc.open("우리 반 경제 앱") # ⭐️ 실제 이름으로 변경!
 
 ws_student = sh.worksheet("학생 명단")
