@@ -7,8 +7,8 @@ from datetime import datetime
 # ---------------------------------------------------------
 # 0. 관리자 및 시트 설정
 # ---------------------------------------------------------
-ADMIN_PASSWORD = "3309"  # 선생님 비밀번호
-SHEET_ID = "1a29VKE2DPG2u9-dhuZ5fCJXeO-jAyjObsItQg-eCTic" # 주소창 d/ 와 /edit 사이 문자열
+ADMIN_PASSWORD = "teacher1234"  # 선생님 비밀번호
+SHEET_ID = "여기에_선생님_시트_ID를_입력하세요" # 주소창 d/ 와 /edit 사이 문자열
 
 # 1. 구글 시트 연동 (최초 1회 실행)
 @st.cache_resource
@@ -18,9 +18,16 @@ def get_gspread_client():
 
 try:
     gc = get_gspread_client()
-    sh = gc.open_by_key(SHEET_ID)
+    sh = gc.open_by_key(1a29VKE2DPG2u9-dhuZ5fCJXeO-jAyjObsItQg-eCTic) # ⭐️ 반드시 시트 ID 사용
+
+except gspread.exceptions.SpreadsheetNotFound:
+    st.error("❌ 시트 파일을 찾을 수 없습니다. 코드의 SHEET_ID를 다시 확인해주세요.")
+    st.stop()
+except gspread.exceptions.APIError as e:
+    st.error("❌ 권한 에러! 구글 시트 [공유] 설정에서 봇 이메일이 편집자로 잘 등록되었는지 확인하세요.")
+    st.stop()
 except Exception as e:
-    st.error(f"시트 연결 실패: {e}")
+    st.error(f"❌ 알 수 없는 연결 에러 발생: {e}")
     st.stop()
 
 # ---------------------------------------------------------
