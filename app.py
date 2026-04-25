@@ -47,7 +47,7 @@ def clear_cache():
 # 3. 화면 구성
 # ---------------------------------------------------------
 st.set_page_config(page_title="우리반 은행", page_icon="🏦", layout="wide")
-st.title("🏦 우리반 모바일 뱅킹 (최적화 버전)")
+st.title("🏦 우리반 모바일 뱅킹")
 
 # 최신 데이터 불러오기
 students_data = fetch_data("학생 명단")
