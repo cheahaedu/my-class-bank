@@ -8,7 +8,7 @@ from datetime import datetime
 # 0. 관리자 설정 및 시트 ID (교사/관리자 비밀번호 설정 ⭐)
 # ---------------------------------------------------------
 TEACHER_PASSWORD = "3309"       # 교사 전용 (마스터 권한)
-MANAGER_PASSWORD = "student5678"  # 중간 관리자용 (총무/재무 권한)
+MANAGER_PASSWORD = "st5678"  # 중간 관리자용 (총무/재무 권한)
 SHEET_ID = "1a29VKE2DPG2u9-dhuZ5fCJXeO-jAyjObsItQg-eCTic"
 
 # 1. 구글 시트 연동 (캐싱 적용)
