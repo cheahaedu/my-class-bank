@@ -36,7 +36,7 @@ def clear_cache():
 # 2. 화면 기본 설정 및 데이터 로드 (⭐ 중요: 가장 먼저 실행)
 # ---------------------------------------------------------
 st.set_page_config(page_title="우리반 은행", page_icon="🏦", layout="wide")
-st.title("🏦 우리반 모바일 뱅킹 V3")
+st.title("🏦 우리반 모바일 뱅킹")
 
 # 데이터 불러오기
 students_data = fetch_data("학생 명단")
